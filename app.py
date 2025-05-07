@@ -1,3 +1,4 @@
+
 import psycopg2
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
@@ -185,16 +186,20 @@ def open_admin():
     notebook = ttk.Notebook(admin)
     notebook.pack(fill="both", expand=True)
 
-    # Клиенты
+    # --- Вкладка Клиенты ---
     frame_client = ttk.Frame(notebook)
     notebook.add(frame_client, text="Клиенты")
+
+    # Поиск по ключевым словам
+    search_entry_client = tk.Entry(frame_client)
+    search_entry_client.pack()
+    tk.Button(frame_client, text="Поиск", command=lambda: search_client(search_entry_client.get())).pack()
 
     tree_client = ttk.Treeview(frame_client, columns=("ID", "Имя", "Фамилия", "Телефон", "Адрес"), show="headings")
     for col in tree_client["columns"]:
         tree_client.heading(col, text=col)
     tree_client.pack(fill="both", expand=True, side="left")
 
-    # Вертикальный ползунок для клиентов
     scrollbar_client = ttk.Scrollbar(frame_client, orient="vertical", command=tree_client.yview)
     scrollbar_client.pack(side="right", fill="y")
     tree_client.config(yscrollcommand=scrollbar_client.set)
@@ -207,6 +212,19 @@ def open_admin():
         cur.execute("SELECT client_id, first_name, last_name, phone, address FROM client ORDER BY client_id")
         for row in cur.fetchall():
             tree_client.insert("", "end", values=row)
+        cur.close()
+        conn.close()
+
+    def search_client(keyword):
+        keyword = keyword.lower()
+        for row in tree_client.get_children():
+            tree_client.delete(row)
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT client_id, first_name, last_name, phone, address FROM client ORDER BY client_id")
+        for row in cur.fetchall():
+            if any(keyword in str(cell).lower() for cell in row):
+                tree_client.insert("", "end", values=row)
         cur.close()
         conn.close()
 
@@ -233,9 +251,13 @@ def open_admin():
     tk.Button(frame_client, text="Редактировать", command=edit_client).pack()
     tk.Button(frame_client, text="Удалить", command=delete_client).pack()
 
-    # Отзывы
+    # --- Вкладка Отзывы ---
     frame_feedback = ttk.Frame(notebook)
     notebook.add(frame_feedback, text="Отзывы")
+
+    search_entry_feedback = tk.Entry(frame_feedback)
+    search_entry_feedback.pack()
+    tk.Button(frame_feedback, text="Поиск", command=lambda: search_feedback(search_entry_feedback.get())).pack()
 
     tree_feedback = ttk.Treeview(
         frame_feedback,
@@ -246,7 +268,6 @@ def open_admin():
         tree_feedback.heading(col, text=col)
     tree_feedback.pack(fill="both", expand=True, side="left")
 
-    # Вертикальный ползунок для отзывов
     scrollbar_feedback = ttk.Scrollbar(frame_feedback, orient="vertical", command=tree_feedback.yview)
     scrollbar_feedback.pack(side="right", fill="y")
     tree_feedback.config(yscrollcommand=scrollbar_feedback.set)
@@ -264,6 +285,23 @@ def open_admin():
         """)
         for row in cur.fetchall():
             tree_feedback.insert("", "end", values=row)
+        cur.close()
+        conn.close()
+
+    def search_feedback(keyword):
+        keyword = keyword.lower()
+        for row in tree_feedback.get_children():
+            tree_feedback.delete(row)
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT f.feedback_id, f.client_id, c.first_name, c.last_name, f.rating, f.comm
+            FROM feedback f
+            JOIN client c ON f.client_id = c.client_id
+        """)
+        for row in cur.fetchall():
+            if any(keyword in str(cell).lower() for cell in row):
+                tree_feedback.insert("", "end", values=row)
         cur.close()
         conn.close()
 
@@ -292,12 +330,6 @@ def open_admin():
 
     tk.Button(frame_feedback, text="Редактировать", command=edit_feedback).pack()
     tk.Button(frame_feedback, text="Удалить", command=delete_feedback).pack()
-
-    # Кнопки для поиска отзывов и подсчета количества отзывов
-    tk.Button(frame_feedback, text="Поиск по оценке", command=search_feedback_above_rating).pack(pady=10)
-    tk.Button(frame_feedback, text="Кол-во заказов клиентов", command=get_feedback_count_for_clients).pack(
-        pady=10)
-
 
 # Основной интерфейс
 root = tk.Tk()
